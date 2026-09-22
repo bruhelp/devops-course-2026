@@ -11,4 +11,5 @@
 - Git / GitHub
 - Python
 - Docker (скоро)
-- Прочее.
+
+# Multi-remote test
