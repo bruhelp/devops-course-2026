@@ -32,5 +32,24 @@ check "Политика входящего трафика по умолчани�
 echo "[3] Учётные записи"
 awk -F: '$3>=1000 && $3<65534 {printf "    %s (uid=%s)\n",$1,$3}' /etc/passwd
 
+echo "[4] Веб-сервер"
+# а) Проверка, что служба nginx активна
+check "Служба Nginx активна" "active" "$(systemctl is-active nginx)"
+# б) Проверка синтаксической корректности конфигурации Nginx
+check "Конфигурация Nginx корректна" "0" "$(sudo nginx -t &>/dev/null; echo $?)"
+# в) Проверка, что сертификат истекает не ранее чем через 30 дней
+check "Сертификат действителен более 30 дней" "0" "$(openssl x509 -checkend 2592000 -noout -in /etc/s>
+# г) Проверка отсутствия файлов, доступных для записи всем
+check "Отсутствуют файлы сайта с правами o+w" "" "$(find /var/www/devops-site -perm -o+w 2>/dev/null)"
+# г) Проверка прав на приватный ключ (600)
+check "Права на приватный ключ равны 600" "600" "$(sudo stat -c '%a' /etc/ssl/private/devops.key)"
+
+echo "[5] Контейнеризация"
+check "Служба Docker активна" "active" "$(systemctl is-active docker)"
+check "Контейнер СУБД в статусе healthy" "healthy" "$(docker inspect -f '{{.State.Health.Status}}' app-db-1 2>/dev/null || echo 'stopped')"
+check "Порт 5000 слушает только 127.0.0.1" "1" "$(ss -tln | grep -E ':5000\b' | grep -c '127.0.0.1')"
+check "Порт 5432 закрыт снаружи (не слушает интерфейсы)" "0" "$(ss -tln | grep -E ':5432\b' | wc -l)"
+check "Права на файл .env равны 600" "600" "$(stat -c '%a' ~/app/.env 2>/dev/null || echo 'missing')"
+
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
